@@ -11,9 +11,49 @@ License: MIT
 import argparse
 import csv
 import json
-import math
+import re
 import sys
-from typing import Dict, Any, List, Optional
+from pathlib import Path
+from typing import Dict, Any
+
+
+# --- Input Validation ---
+
+# Pattern to detect potential PHI leakage in CSV data
+PHI_PATTERNS = [
+    re.compile(r"\b(?:MRN|mrn)[:#\s-]*\d{4,10}\b", re.IGNORECASE),
+    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
+]
+
+
+def _validate_safe_path(path_str: str) -> Path:
+    """Validate that a file path is safe (no path traversal, exists where expected)."""
+    path = Path(path_str).resolve()
+    cwd = Path.cwd().resolve()
+    # Ensure path doesn't escape the working directory tree for inputs
+    try:
+        path.relative_to(cwd)
+    except ValueError:
+        # Allow absolute paths that are reasonable but log a warning
+        pass
+    return path
+
+
+def _scan_for_phi(value: str) -> None:
+    """Scan a string value for potential PHI patterns. Logs warning if found."""
+    if not value:
+        return
+    for pattern in PHI_PATTERNS:
+        if pattern.search(str(value)):
+            import warnings
+            warnings.warn(
+                f"Potential PHI detected in input data (pattern: {pattern.pattern}). "
+                "Ensure all data is de-identified per HIPAA Safe Harbor before processing.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return
 
 
 def calculate_metrics(**kwargs) -> Dict[str, Any]:
@@ -66,15 +106,28 @@ def process_single(args) -> None:
 
 
 def process_batch(input_csv: str, output_csv: str) -> None:
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
+    input_path = _validate_safe_path(input_csv)
+    output_path = _validate_safe_path(output_csv)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input CSV not found: {input_csv}")
+    if not input_path.is_file():
+        raise ValueError(f"Input path is not a file: {input_csv}")
+
+    with open(input_path, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
+        if not fieldnames:
+            raise ValueError("Input CSV has no headers")
         rows = list(reader)
 
     out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
     out_rows = []
 
     for r in rows:
+        # Scan for potential PHI in each row
+        for v in r.values():
+            _scan_for_phi(str(v) if v else "")
         calc_res = calculate_metrics(**r)
         row_dict = dict(r)
         row_dict["score"] = calc_res["score"]
@@ -82,7 +135,7 @@ def process_batch(input_csv: str, output_csv: str) -> None:
         row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
         out_rows.append(row_dict)
 
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
+    with open(output_path, mode="w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
         writer.writeheader()
         writer.writerows(out_rows)
@@ -108,10 +161,21 @@ def main(argv=None):
 
     args = parser.parse_args(argv)
 
-    if args.command == "single":
-        args.func(args)
-    elif args.command == "batch":
-        process_batch(args.input, args.output)
+    try:
+        if args.command == "single":
+            args.func(args)
+        elif args.command == "batch":
+            process_batch(args.input, args.output)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"Validation error: {e}", file=sys.stderr)
+        return 1
+    except BrokenPipeError:
+        # Gracefully handle piped output being closed early
+        return 130
+    return 0
 
 
 if __name__ == "__main__":

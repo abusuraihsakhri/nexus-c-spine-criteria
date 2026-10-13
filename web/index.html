@@ -1,236 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus C Spine Criteria — Operations Console</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card: #111827;
-            --border: #1f293d;
-            --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.25);
-            --text: #f3f4f6;
-            --text-muted: #9ca3af;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .header-title h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem; }
-        .badge {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: var(--accent-glow);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 1.5rem;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        }
-        .card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
-        input, select, textarea {
-            width: 100%;
-            padding: 0.65rem 0.9rem;
-            background: #0d1322;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: #fff;
-            font-family: inherit;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--accent); }
-        .btn {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 0.7rem 1.4rem;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-        }
-        .btn:hover { background: #2563eb; }
-        .terminal {
-            background: #060911;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #10b981;
-            height: 380px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-        .metrics-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .metric-box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-        }
-        .metric-val { font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 0.25rem; }
-        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Local, browser-based NEXUS cervical-spine low-risk criteria assessment">
+  <title>NEXUS Cervical Spine Criteria</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #172334; background: #f3f6fa; line-height: 1.5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: clamp(1rem, 3vw, 2.25rem); }
+    main { max-width: 850px; margin: 0 auto; }
+    h1 { margin: 0 0 .3rem; font-size: clamp(1.7rem, 4vw, 2.2rem); }
+    h2 { margin: 0 0 .65rem; font-size: 1.16rem; }
+    .subtitle { color: #445670; margin-top: 0; }
+    .panel { background: white; border: 1px solid #d3dce8; border-radius: 12px; padding: clamp(1rem, 3vw, 1.6rem); margin: 1rem 0; }
+    fieldset { padding: 0; margin: 0; border: 0; }
+    legend { font-weight: 700; margin-bottom: .8rem; }
+    .question { padding: .72rem 0; border-top: 1px solid #e7edf4; display: grid; grid-template-columns: minmax(0, 1fr) minmax(165px, 210px); gap: 1rem; align-items: center; }
+    .question label { font-weight: 580; }
+    .question small { display: block; color: #56657b; font-weight: normal; }
+    select, input { width: 100%; padding: .65rem; border: 1px solid #718198; border-radius: 6px; background: white; color: inherit; font-size: 1rem; }
+    button { padding: .68rem 1.1rem; font: inherit; font-weight: 650; border-radius: 6px; border: 1px solid #23528b; background: #23528b; color: white; cursor: pointer; }
+    button[type=reset] { background: white; color: #23528b; }
+    button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid #d28b04; outline-offset: 2px; }
+    .actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+    .notice { border-left: 4px solid #9c6506; padding: .6rem .9rem; background: #fff8e9; }
+    #result { border-left: 6px solid #a86605; }
+    #result[data-status=NEXUS_NEGATIVE] { border-left-color: #116a4b; }
+    #result[data-status=NEXUS_POSITIVE] { border-left-color: #a32c38; }
+    footer { color: #526076; font-size: .88rem; margin: 1.7rem 0; }
+    a { color: #16529a; }
+    @media (max-width: 570px) { .question { grid-template-columns: 1fr; gap: .35rem; } }
+  </style>
 </head>
 <body>
-
-    <div class="header">
-        <div class="header-title">
-            <h1>Nexus C Spine Criteria</h1>
-            <p>Domain: Clinical & Cryptographic AI | Standard: CAP / CLSI / NIST Standards | LabMind-Atlas Architecture</p>
-        </div>
-        <div>
-            <span class="badge">Air-Gapped Active</span>
-            <span class="badge" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981;">Zero-PHI Guard Active</span>
-        </div>
-    </div>
-
-    <div class="metrics-bar">
-        <div class="metric-box">
-            <div class="metric-label">System Status</div>
-            <div class="metric-val" style="color: var(--success);" id="m-status">OPTIMAL</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">Tasks Processed</div>
-            <div class="metric-val" id="m-tasks">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">Audit Blocks Signed</div>
-            <div class="metric-val" id="m-audit">142</div>
-        </div>
-        <div class="metric-box">
-            <div class="metric-label">PHI Interceptions</div>
-            <div class="metric-val" style="color: var(--accent);" id="m-phi">0</div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>⚙️ Dispatch Distributed Component Audit</h2>
-            <div class="form-group">
-                <label>Task / Sample ID</label>
-                <input type="text" id="task_id" value="TASK-2026-LIVE-01">
-            </div>
-            <div class="form-group">
-                <label>Target Identifier</label>
-                <input type="text" id="target_id" value="SPECIMEN-ALPHA-77">
-            </div>
-            <div class="form-group">
-                <label>Primary Measurement / Value</label>
-                <input type="number" id="primary_metric" value="29.4" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Secondary Metric / Kinetic Index</label>
-                <input type="number" id="secondary_metric" value="14.8" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>Status / Phenotype Descriptor</label>
-                <input type="text" id="status_descriptor" value="DISCORDANT_ANOMALY">
-            </div>
-            <div class="form-group">
-                <label><input type="checkbox" id="is_critical" checked> Trigger Emergency / Critical Flag</label>
-            </div>
-            <button class="btn" onclick="runAudit()">Execute Distributed Component Audit</button>
-        </div>
-
-        <div class="card">
-            <h2>📊 Real-Time Consensus Dossier & Audit Log</h2>
-            <div class="terminal" id="outputConsole">// Nexus C Spine Criteria Operations Console Ready
-// Connection established with Air-Gapped Supervisor
-// Cryptographic HMAC-SHA256 audit ledger loaded.
-// Ready for live task payload dispatch...</div>
-        </div>
-    </div>
-
-    <script>
-        async function runAudit() {
-            const consoleEl = document.getElementById('outputConsole');
-            consoleEl.innerText = "// Dispatching task across specialized workers...
-// Invoking InvariantQCWorker, SafetyEscalationWorker, ProtocolWorker...";
-
-            const payload = {
-                task_id: document.getElementById('task_id').value,
-                target_identifier: document.getElementById('target_id').value,
-                primary_metric: parseFloat(document.getElementById('primary_metric').value),
-                secondary_metric: parseFloat(document.getElementById('secondary_metric').value),
-                status_descriptor: document.getElementById('status_descriptor').value,
-                is_critical_flag: document.getElementById('is_critical').checked
-            };
-
-            try {
-                const res = await fetch('/api/audit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                consoleEl.innerText = JSON.stringify(data, null, 2);
-                document.getElementById('m-tasks').innerText = parseInt(document.getElementById('m-tasks').innerText) + 1;
-                document.getElementById('m-audit').innerText = parseInt(document.getElementById('m-audit').innerText) + 1;
-            } catch (err) {
-                consoleEl.innerText = "// Offline / Simulation Output:\n" + JSON.stringify({
-                    dossier_id: "DOSSIER-SIM-" + Math.floor(Math.random()*10000),
-                    system: "nexus-c-spine-criteria",
-                    domain: "Clinical & Cryptographic AI",
-                    task_id: payload.task_id,
-                    overall_urgency: payload.is_critical_flag ? "CRITICAL_STAT_PANIC" : "ELEVATED_RISK",
-                    integrity_status: "DISCORDANT_ANOMALY",
-                    alerts: [
-                        { worker: "InvariantQCWorker", alert: "Primary metric exceeds upper reference bound" },
-                        { worker: "SafetyEscalationWorker", alert: "Critical emergency interlock flag active" }
-                    ],
-                    audit_hash: "HMAC_SHA256_e83f9a72b941d6c381f9"
-                }, null, 2);
-            }
-        }
-    </script>
+<main>
+  <header>
+    <h1>NEXUS Cervical Spine Criteria</h1>
+    <p class="subtitle">Five-item assessment for patients with blunt trauma · Clinical decision support</p>
+  </header>
+  <section class="panel notice" aria-label="Safety information">
+    <strong>Clinical caution.</strong> A negative NEXUS assessment indicates low risk, not zero risk. Apply only in an appropriate clinical context. Positive or incomplete assessments do not permit clearance using this rule. For children and older adults, further caution is required.
+  </section>
+  <form id="assessment" class="panel" novalidate>
+    <fieldset>
+      <legend>Are any of the following findings present?</legend>
+      <div class="question"><label for="midline_tenderness">Posterior midline cervical tenderness<small>Midline posterior cervical-spine tenderness on examination</small></label><select name="midline_tenderness" id="midline_tenderness" data-label="Posterior midline cervical tenderness"><option value="">Not assessed</option><option value="absent">Absent</option><option value="present">Present</option></select></div>
+      <div class="question"><label for="intoxication">Evidence of intoxication<small>Clinical evidence of alcohol or drug intoxication</small></label><select name="intoxication" id="intoxication" data-label="Evidence of intoxication"><option value="">Not assessed</option><option value="absent">Absent</option><option value="present">Present</option></select></div>
+      <div class="question"><label for="altered_alertness">Altered level of alertness<small>Not normally alert</small></label><select name="altered_alertness" id="altered_alertness" data-label="Altered level of alertness"><option value="">Not assessed</option><option value="absent">Absent</option><option value="present">Present</option></select></div>
+      <div class="question"><label for="focal_neurologic_deficit">Focal neurological deficit<small>Focal neurological abnormality on assessment</small></label><select name="focal_neurologic_deficit" id="focal_neurologic_deficit" data-label="Focal neurological deficit"><option value="">Not assessed</option><option value="absent">Absent</option><option value="present">Present</option></select></div>
+      <div class="question"><label for="distracting_injury">Painful distracting injury<small>An injury that may distract from cervical-spine pain</small></label><select name="distracting_injury" id="distracting_injury" data-label="Painful distracting injury"><option value="">Not assessed</option><option value="absent">Absent</option><option value="present">Present</option></select></div>
+    </fieldset>
+    <div class="question"><label for="age">Age (optional)<small>Used only to flag interpretation limitations; not a NEXUS criterion</small></label><input id="age" name="age" type="number" min="0" max="120" step="1" inputmode="numeric" placeholder="Not provided"></div>
+    <div class="actions"><button type="submit">Evaluate NEXUS</button><button type="reset">Clear form</button></div>
+  </form>
+  <section id="result" class="panel" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></section>
+  <footer>
+    <p><strong>Privacy:</strong> Evaluation runs locally in the browser. No patient data is sent to a server or saved by this application. Do not enter patient identifiers.</p>
+    <p>Reference: Hoffman JR et al. <em>N Engl J Med.</em> 2000;343:94–99. <a href="https://doi.org/10.1056/NEJM200007133430203" rel="noopener noreferrer" target="_blank">Original validation study</a>. Not a substitute for clinician assessment or local protocols.</p>
+  </footer>
+</main>
+<script type="module" src="./app.mjs"></script>
 </body>
 </html>

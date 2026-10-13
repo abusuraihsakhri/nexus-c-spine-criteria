@@ -1,18 +1,11 @@
-version: '3.8'
-
 services:
   nexus-c-spine-criteria:
     build: .
-    container_name: nexus-c-spine-criteria
     ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    environment:
-      - MODEL_PROVIDER=mock
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -8,7 +8,7 @@ form.addEventListener('submit', event => {
   event.preventDefault();
   const values = Object.fromEntries(CRITERIA.map(name => {
     const input = form.elements[name].value;
-    return [name, input === '' ? null : input === 'present'];
+    return [name, input === 'present' ? true : input === 'absent' ? false : null];
   }));
   const ageText = form.elements.age.value.trim();
   const age = ageText === '' ? null : Number(ageText);

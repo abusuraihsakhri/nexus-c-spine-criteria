@@ -42,3 +42,7 @@ def test_legacy_api_requires_token(monkeypatch):
     assert client.get("/api/audit/logs").status_code == 401
     assert client.get("/api/audit/logs", headers={"X-API-Key": "wrong"}).status_code == 401
     assert client.get("/api/audit/logs", headers={"X-API-Key": "example-test-only-key"}).status_code == 200
+
+
+def test_unknown_criterion_rejected():
+    assert client.post("/api/nexus", json={"alertness": False}).status_code == 422

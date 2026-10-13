@@ -1,113 +1,43 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Nexus C Spine Criteria API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
-    "contact": {
-      "name": "Dr. Abu Suraih Sakhri",
-      "url": "https://github.com/abusuraihsakhri"
-    }
+    "title": "NEXUS Cervical Spine Criteria API",
+    "description": "Five-item NEXUS low-risk decision support; use with clinical judgment.",
+    "version": "3.1.0"
   },
   "paths": {
     "/health": {
       "get": {
-        "summary": "Health and metadata check",
-        "responses": {
-          "200": {
-            "description": "System optimal"
-          }
-        }
+        "summary": "Service health check",
+        "responses": {"200": {"description": "Service available"}}
       }
     },
-    "/metrics": {
-      "get": {
-        "summary": "Prometheus operational metrics",
-        "responses": {
-          "200": {
-            "description": "Prometheus text metrics"
-          }
-        }
-      }
-    },
-    "/api/audit": {
+    "/api/nexus": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
+        "summary": "Evaluate five NEXUS cervical-spine criteria",
+        "description": "True means the adverse finding is present. Unassessed fields yield INCOMPLETE unless another finding is positive. This endpoint does not diagnose injury.",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "task_id": {
-                    "type": "string"
-                  },
-                  "target_identifier": {
-                    "type": "string"
-                  },
-                  "primary_metric": {
-                    "type": "number"
-                  },
-                  "secondary_metric": {
-                    "type": "number"
-                  },
-                  "status_descriptor": {
-                    "type": "string"
-                  },
-                  "is_critical_flag": {
-                    "type": "boolean"
-                  }
+                  "midline_tenderness": {"type": ["boolean", "null"], "default": null},
+                  "intoxication": {"type": ["boolean", "null"], "default": null},
+                  "altered_alertness": {"type": ["boolean", "null"], "default": null},
+                  "focal_neurologic_deficit": {"type": ["boolean", "null"], "default": null},
+                  "distracting_injury": {"type": ["boolean", "null"], "default": null},
+                  "age": {"type": ["integer", "null"], "minimum": 0, "maximum": 120, "default": null}
                 },
-                "required": [
-                  "task_id",
-                  "target_identifier",
-                  "primary_metric"
-                ]
+                "additionalProperties": false
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Consensus dossier with HMAC signature"
-          }
-        }
-      }
-    },
-    "/api/chat": {
-      "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "query": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "query"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Supervisory response"
-          }
-        }
-      }
-    },
-    "/api/audit/logs": {
-      "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
-        "responses": {
-          "200": {
-            "description": "Cryptographic audit trail"
-          }
+          "200": {"description": "NEXUS_NEGATIVE, NEXUS_POSITIVE, or INCOMPLETE result"},
+          "422": {"description": "Invalid request schema"}
         }
       }
     }

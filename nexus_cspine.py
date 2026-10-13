@@ -1,182 +1,215 @@
 #!/usr/bin/env python3
-"""
-NEXUS Low-Risk Criteria for Cervical Spine Injury
-Assesses 5 NEXUS clinical criteria to clear cervical spine without radiographic imaging.
+"""Five-item NEXUS cervical-spine low-risk decision instrument.
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+Research/education implementation. Not a substitute for clinical judgment.
+Reference: Hoffman et al. N Engl J Med. 2000;343:94-99.
+DOI: 10.1056/NEJM200007133430203
 """
 
 import argparse
 import csv
 import json
+import os
+import tempfile
 import re
 import sys
+import warnings
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
-
-# --- Input Validation ---
-
-# Pattern to detect potential PHI leakage in CSV data
-PHI_PATTERNS = [
-    re.compile(r"\b(?:MRN|mrn)[:#\s-]*\d{4,10}\b", re.IGNORECASE),
+CRITERIA = (
+    "midline_tenderness",
+    "intoxication",
+    "altered_alertness",
+    "focal_neurologic_deficit",
+    "distracting_injury",
+)
+PHI_PATTERNS = (
+    re.compile(r"\bMRN[:#\s-]*\d{4,10}\b", re.I),
     re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
     re.compile(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"),
-]
+    re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+)
 
 
 def _validate_safe_path(path_str: str) -> Path:
-    """Validate that a file path is safe (no path traversal, exists where expected)."""
-    path = Path(path_str).resolve()
-    cwd = Path.cwd().resolve()
-    # Ensure path doesn't escape the working directory tree for inputs
-    try:
-        path.relative_to(cwd)
-    except ValueError:
-        # Allow absolute paths that are reasonable but log a warning
-        pass
-    return path
+    """Resolve an explicit local path; this does not impose a filesystem sandbox."""
+    return Path(path_str).expanduser().resolve()
 
 
 def _scan_for_phi(value: str) -> None:
-    """Scan a string value for potential PHI patterns. Logs warning if found."""
-    if not value:
-        return
-    for pattern in PHI_PATTERNS:
-        if pattern.search(str(value)):
-            import warnings
-            warnings.warn(
-                f"Potential PHI detected in input data (pattern: {pattern.pattern}). "
-                "Ensure all data is de-identified per HIPAA Safe Harbor before processing.",
-                UserWarning,
-                stacklevel=3,
-            )
-            return
+    """Best-effort warning only; NOT de-identification or a PHI guarantee."""
+    if value and any(pattern.search(str(value)) for pattern in PHI_PATTERNS):
+        warnings.warn("Possible patient identifier in CSV; use de-identified data only.", UserWarning, stacklevel=2)
 
 
-def calculate_metrics(**kwargs) -> Dict[str, Any]:
+def _parse_finding(value: Any) -> bool | None:
+    """True = finding PRESENT, False = finding ABSENT, None = not assessed."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("", "unknown", "not assessed", "na", "n/a"):
+            return None
+        if lowered in ("true", "yes", "present", "1"):
+            return True
+        if lowered in ("false", "no", "absent", "0"):
+            return False
+    if type(value) is int and value in (0, 1):
+        return bool(value)
+    raise ValueError(f"Invalid criterion response {value!r}; use present/absent/unknown")
+
+
+def calculate_metrics(**kwargs: Any) -> Dict[str, Any]:
+    """Evaluate all five NEXUS findings; never infer unassessed negatives.
+
+    The five arguments named in CRITERIA are required for a negative result.
+    Unknown/missing answers yield INCOMPLETE unless a positive is present.
+    Positive means the rule cannot support clinical clearance, NOT diagnosed injury.
     """
-    Core domain algorithm for nexus-c-spine-criteria.
-    """
-    params = {}
-    for k, v in kwargs.items():
-        if v is not None:
-            try:
-                params[k] = float(v)
-            except (ValueError, TypeError):
-                params[k] = str(v)
-
-    # Deterministic domain logic
-    numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
-
-    score = primary_val
-    for idx, nv in enumerate(numeric_vals[1:], start=2):
-        score += nv * (1.0 / idx)
-
-    rounded_score = round(score, 2)
-    
-    # Classification / tiering
-    if rounded_score < 10.0:
-        tier = "Low / Standard"
-        action = "Standard monitoring or negative cutoff"
-    elif rounded_score < 25.0:
-        tier = "Moderate / Intermediate"
-        action = "Close observation or secondary evaluation"
+    extras = set(kwargs) - set(CRITERIA) - {"age"}
+    if extras:
+        raise ValueError(f"Unknown clinical fields: {', '.join(sorted(extras))}")
+    findings = {name: _parse_finding(kwargs.get(name)) for name in CRITERIA}
+    positive = [name for name, value in findings.items() if value is True]
+    missing = [name for name, value in findings.items() if value is None]
+    age = kwargs.get("age")
+    if age not in (None, ""):
+        try:
+            age_value = int(age)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("Age must be a whole number") from exc
+        if str(age).strip() != str(age_value) or not 0 <= age_value <= 120:
+            raise ValueError("Age must be an integer from 0 to 120")
+        age = age_value
     else:
-        tier = "High / Severe"
-        action = "Urgent clinical intervention or primary positive finding"
+        age = None
 
+    if positive:
+        classification = "NEXUS_POSITIVE"
+        recommendation = "NEXUS does not support clinical clearance; assess need for cervical-spine imaging."
+        negative = False
+    elif missing:
+        classification = "INCOMPLETE"
+        recommendation = "Complete all five assessments; do not clear cervical spine using this incomplete rule."
+        negative = None
+    else:
+        classification = "NEXUS_NEGATIVE"
+        recommendation = "All five low-risk criteria met; imaging may be unnecessary if clinically appropriate."
+        negative = True
+
+    caution = ("Evidence is less certain in children and adults aged 65 or older; "
+               "do not rely on this tool alone.") if age is not None and (age < 16 or age >= 65) else None
     return {
         "tool": "nexus-c-spine-criteria",
-        "score": rounded_score,
-        "classification": tier,
-        "clinical_recommendation": action,
-        "inputs_evaluated": len(params),
+        "classification": classification,
+        "nexus_negative": negative,
+        "positive_criteria": positive,
+        "missing_criteria": missing,
+        "criteria": findings,
+        "clinical_recommendation": recommendation,
+        "age_caution": caution,
+        "disclaimer": "Decision support for qualified clinicians; not a diagnosis or substitute for clinical judgment.",
     }
 
 
-def process_single(args) -> None:
-    kwargs = vars(args)
-    kwargs.pop("func", None)
-    res = calculate_metrics(**kwargs)
-    print(json.dumps(res, indent=2))
+def process_single(args: argparse.Namespace) -> None:
+    print(json.dumps(calculate_metrics(**{name: getattr(args, name) for name in CRITERIA}, age=args.age), indent=2))
 
 
-def process_batch(input_csv: str, output_csv: str) -> None:
-    input_path = _validate_safe_path(input_csv)
-    output_path = _validate_safe_path(output_csv)
+def _safe_csv_cell(value: Any) -> Any:
+    """Neutralize spreadsheet formulas in non-clinical CSV columns on export."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
 
-    if not input_path.exists():
+
+def process_batch(input_csv: str, output_csv: str) -> int:
+    """Stream clinical rows and atomically replace output only on success."""
+    source, destination = _validate_safe_path(input_csv), _validate_safe_path(output_csv)
+    if source == destination:
+        raise ValueError("Input and output files must be different")
+    if not source.is_file():
         raise FileNotFoundError(f"Input CSV not found: {input_csv}")
-    if not input_path.is_file():
-        raise ValueError(f"Input path is not a file: {input_csv}")
+    count = 0
+    temporary_path = None
+    try:
+        with source.open(newline="", encoding="utf-8-sig") as src:
+            reader = csv.DictReader(src)
+            fields = reader.fieldnames
+            if not fields:
+                raise ValueError("Input CSV has no headers")
+            if len(set(fields)) != len(fields):
+                raise ValueError("Duplicate CSV column headers")
+            missing = [name for name in CRITERIA if name not in fields]
+            if missing:
+                raise ValueError("Missing NEXUS columns: " + ", ".join(missing))
+            result_columns = (
+                "classification", "nexus_negative", "positive_criteria",
+                "missing_criteria", "clinical_recommendation", "age_caution",
+            )
+            output_fields = list(fields) + [col for col in result_columns if col not in fields]
+            with tempfile.NamedTemporaryFile(
+                "w", newline="", encoding="utf-8", dir=destination.parent,
+                prefix=".nexus-", suffix=".tmp", delete=False,
+            ) as dest:
+                temporary_path = Path(dest.name)
+                writer = csv.DictWriter(dest, fieldnames=output_fields)
+                writer.writeheader()
+                for row_number, row in enumerate(reader, start=2):
+                    if None in row:
+                        raise ValueError(f"CSV row {row_number}: more cells than headers")
+                    for value in row.values():
+                        _scan_for_phi(str(value or ""))
+                    try:
+                        result = calculate_metrics(
+                            **{name: row[name] for name in CRITERIA}, age=row.get("age")
+                        )
+                    except ValueError as exc:
+                        raise ValueError(f"CSV row {row_number}: {exc}") from exc
+                    row.update({
+                        "classification": result["classification"],
+                        "nexus_negative": "" if result["nexus_negative"] is None else str(result["nexus_negative"]).lower(),
+                        "positive_criteria": ";".join(result["positive_criteria"]),
+                        "missing_criteria": ";".join(result["missing_criteria"]),
+                        "clinical_recommendation": result["clinical_recommendation"],
+                        "age_caution": result["age_caution"] or "",
+                    })
+                    writer.writerow({key: _safe_csv_cell(value) for key, value in row.items()})
+                    count += 1
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+    return count
 
-    with open(input_path, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        fieldnames = list(reader.fieldnames or [])
-        if not fieldnames:
-            raise ValueError("Input CSV has no headers")
-        rows = list(reader)
 
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
-
-    for r in rows:
-        # Scan for potential PHI in each row
-        for v in r.values():
-            _scan_for_phi(str(v) if v else "")
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
-
-    with open(output_path, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
-        writer.writeheader()
-        writer.writerows(out_rows)
-
-    print(f"Processed {len(out_rows)} records -> {output_csv}")
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description="NEXUS Low-Risk Criteria for Cervical Spine Injury")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Single parser
-    single_parser = subparsers.add_parser("single", help="Evaluate single case")
-    single_parser.add_argument("--v1", type=float, default=10.0, help="Primary parameter")
-    single_parser.add_argument("--v2", type=float, default=5.0, help="Secondary parameter")
-    single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
-    single_parser.set_defaults(func=process_single)
-
-    # Batch parser
-    batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
-    batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
-    batch_parser.add_argument("-o", "--output", default="results.csv", help="Output CSV")
-
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="NEXUS cervical-spine low-risk rule (blunt trauma)")
+    commands = parser.add_subparsers(dest="command", required=True)
+    single = commands.add_parser("single", help="Evaluate one clinical assessment")
+    for criterion in CRITERIA:
+        single.add_argument("--" + criterion.replace("_", "-"), choices=("present", "absent", "unknown"), required=True)
+    single.add_argument("--age", type=int, help="Optional patient age, used only for interpretation caution")
+    batch = commands.add_parser("batch", help="Process a de-identified clinical CSV")
+    batch.add_argument("-i", "--input", required=True)
+    batch.add_argument("-o", "--output", default="results.csv")
     args = parser.parse_args(argv)
-
     try:
         if args.command == "single":
-            args.func(args)
-        elif args.command == "batch":
-            process_batch(args.input, args.output)
-    except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-    except ValueError as e:
-        print(f"Validation error: {e}", file=sys.stderr)
+            process_single(args)
+        else:
+            print(f"Processed {process_batch(args.input, args.output)} records -> {args.output}")
+    except (ValueError, FileNotFoundError, OSError, csv.Error) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
     except BrokenPipeError:
-        # Gracefully handle piped output being closed early
         return 130
     return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -78,3 +78,23 @@ def test_cli_error_on_incomplete_arguments():
     with pytest.raises(SystemExit) as result:
         main(["single", "--midline-tenderness", "absent"])
     assert result.value.code == 2
+
+
+def test_batch_fails_without_partial_output(tmp_path: Path):
+    inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
+    header = ",".join(CRITERIA)
+    inp.write_text(f"{header}\nabsent,absent,absent,absent,absent\nabsent,INVALID,absent,absent,absent\n")
+    out.write_text("PREVIOUS RESULTS")
+    with pytest.raises(ValueError, match="row 3"):
+        process_batch(str(inp), str(out))
+    assert out.read_text() == "PREVIOUS RESULTS"
+    assert not list(tmp_path.glob(".nexus-*.tmp"))
+
+
+def test_csv_spreadsheet_injection_escaped(tmp_path: Path):
+    inp, out = tmp_path / "in.csv", tmp_path / "out.csv"
+    inp.write_text("case_id," + ",".join(CRITERIA) + "\n=1+1," + ",".join(["absent"] * 5) + "\n")
+    process_batch(str(inp), str(out))
+    with out.open(newline="") as h:
+        row = next(csv.DictReader(h))
+    assert row["case_id"] == "'=1+1"

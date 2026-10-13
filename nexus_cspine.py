@@ -9,6 +9,8 @@ DOI: 10.1056/NEJM200007133430203
 import argparse
 import csv
 import json
+import os
+import tempfile
 import re
 import sys
 import warnings
@@ -117,48 +119,71 @@ def process_single(args: argparse.Namespace) -> None:
     print(json.dumps(calculate_metrics(**{name: getattr(args, name) for name in CRITERIA}, age=args.age), indent=2))
 
 
+def _safe_csv_cell(value: Any) -> Any:
+    """Neutralize spreadsheet formulas in non-clinical CSV columns on export."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
+
+
 def process_batch(input_csv: str, output_csv: str) -> int:
-    """Stream clinical rows to CSV. All five criterion headers are required."""
+    """Stream clinical rows and atomically replace output only on success."""
     source, destination = _validate_safe_path(input_csv), _validate_safe_path(output_csv)
     if source == destination:
         raise ValueError("Input and output files must be different")
     if not source.is_file():
         raise FileNotFoundError(f"Input CSV not found: {input_csv}")
     count = 0
-    with source.open(newline="", encoding="utf-8-sig") as src:
-        reader = csv.DictReader(src)
-        fields = reader.fieldnames
-        if not fields:
-            raise ValueError("Input CSV has no headers")
-        if len(set(fields)) != len(fields):
-            raise ValueError("Duplicate CSV column headers")
-        missing = [name for name in CRITERIA if name not in fields]
-        if missing:
-            raise ValueError("Missing NEXUS columns: " + ", ".join(missing))
-        extra_columns = ("classification", "nexus_negative", "positive_criteria", "missing_criteria", "clinical_recommendation", "age_caution")
-        output_fields = list(fields) + [col for col in extra_columns if col not in fields]
-        with destination.open("w", newline="", encoding="utf-8") as dest:
-            writer = csv.DictWriter(dest, fieldnames=output_fields)
-            writer.writeheader()
-            for row_number, row in enumerate(reader, start=2):
-                if None in row:
-                    raise ValueError(f"CSV row {row_number}: more cells than headers")
-                for value in row.values():
-                    _scan_for_phi(str(value or ""))
-                try:
-                    result = calculate_metrics(**{name: row[name] for name in CRITERIA}, age=row.get("age"))
-                except ValueError as exc:
-                    raise ValueError(f"CSV row {row_number}: {exc}") from exc
-                row.update({
-                    "classification": result["classification"],
-                    "nexus_negative": "" if result["nexus_negative"] is None else str(result["nexus_negative"]).lower(),
-                    "positive_criteria": ";".join(result["positive_criteria"]),
-                    "missing_criteria": ";".join(result["missing_criteria"]),
-                    "clinical_recommendation": result["clinical_recommendation"],
-                    "age_caution": result["age_caution"] or "",
-                })
-                writer.writerow(row)
-                count += 1
+    temporary_path = None
+    try:
+        with source.open(newline="", encoding="utf-8-sig") as src:
+            reader = csv.DictReader(src)
+            fields = reader.fieldnames
+            if not fields:
+                raise ValueError("Input CSV has no headers")
+            if len(set(fields)) != len(fields):
+                raise ValueError("Duplicate CSV column headers")
+            missing = [name for name in CRITERIA if name not in fields]
+            if missing:
+                raise ValueError("Missing NEXUS columns: " + ", ".join(missing))
+            result_columns = (
+                "classification", "nexus_negative", "positive_criteria",
+                "missing_criteria", "clinical_recommendation", "age_caution",
+            )
+            output_fields = list(fields) + [col for col in result_columns if col not in fields]
+            with tempfile.NamedTemporaryFile(
+                "w", newline="", encoding="utf-8", dir=destination.parent,
+                prefix=".nexus-", suffix=".tmp", delete=False,
+            ) as dest:
+                temporary_path = Path(dest.name)
+                writer = csv.DictWriter(dest, fieldnames=output_fields)
+                writer.writeheader()
+                for row_number, row in enumerate(reader, start=2):
+                    if None in row:
+                        raise ValueError(f"CSV row {row_number}: more cells than headers")
+                    for value in row.values():
+                        _scan_for_phi(str(value or ""))
+                    try:
+                        result = calculate_metrics(
+                            **{name: row[name] for name in CRITERIA}, age=row.get("age")
+                        )
+                    except ValueError as exc:
+                        raise ValueError(f"CSV row {row_number}: {exc}") from exc
+                    row.update({
+                        "classification": result["classification"],
+                        "nexus_negative": "" if result["nexus_negative"] is None else str(result["nexus_negative"]).lower(),
+                        "positive_criteria": ";".join(result["positive_criteria"]),
+                        "missing_criteria": ";".join(result["missing_criteria"]),
+                        "clinical_recommendation": result["clinical_recommendation"],
+                        "age_caution": result["age_caution"] or "",
+                    })
+                    writer.writerow({key: _safe_csv_cell(value) for key, value in row.items()})
+                    count += 1
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     return count
 
 

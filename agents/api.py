@@ -4,7 +4,7 @@ import secrets
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from nexus_cspine import calculate_metrics
 from .base import AuditLogger
@@ -20,6 +20,7 @@ legacy_supervisor = SystemSupervisor(model_provider="mock")
 
 
 class NexusAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     midline_tenderness: Optional[bool] = None
     intoxication: Optional[bool] = None
     altered_alertness: Optional[bool] = None

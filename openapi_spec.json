@@ -9,7 +9,11 @@
     "/health": {
       "get": {
         "summary": "Service health check",
-        "responses": {"200": {"description": "Service available"}}
+        "responses": {
+          "200": {
+            "description": "Service available"
+          }
+        }
       }
     },
     "/api/nexus": {
@@ -23,12 +27,50 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "midline_tenderness": {"type": ["boolean", "null"], "default": null},
-                  "intoxication": {"type": ["boolean", "null"], "default": null},
-                  "altered_alertness": {"type": ["boolean", "null"], "default": null},
-                  "focal_neurologic_deficit": {"type": ["boolean", "null"], "default": null},
-                  "distracting_injury": {"type": ["boolean", "null"], "default": null},
-                  "age": {"type": ["integer", "null"], "minimum": 0, "maximum": 120, "default": null}
+                  "midline_tenderness": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "intoxication": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "altered_alertness": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "focal_neurologic_deficit": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "distracting_injury": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "default": null
+                  },
+                  "age": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 120,
+                    "default": null
+                  }
                 },
                 "additionalProperties": false
               }
@@ -36,9 +78,114 @@
           }
         },
         "responses": {
-          "200": {"description": "NEXUS_NEGATIVE, NEXUS_POSITIVE, or INCOMPLETE result"},
-          "422": {"description": "Invalid request schema"}
+          "200": {
+            "description": "NEXUS_NEGATIVE, NEXUS_POSITIVE, or INCOMPLETE result"
+          },
+          "422": {
+            "description": "Invalid request schema"
+          }
         }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Legacy simulation metrics",
+        "description": "Disabled unless ENABLE_LEGACY_API=1 and LEGACY_API_TOKEN is configured. Not a NEXUS assessment.",
+        "deprecated": true,
+        "security": [
+          {
+            "LegacyAPIKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy simulation response"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "404": {
+            "description": "Legacy API disabled"
+          }
+        }
+      }
+    },
+    "/api/audit": {
+      "post": {
+        "summary": "Legacy generic simulation task",
+        "description": "Disabled unless ENABLE_LEGACY_API=1 and LEGACY_API_TOKEN is configured. Not a NEXUS assessment.",
+        "deprecated": true,
+        "security": [
+          {
+            "LegacyAPIKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy simulation response"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "404": {
+            "description": "Legacy API disabled"
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "summary": "Legacy mock simulation query",
+        "description": "Disabled unless ENABLE_LEGACY_API=1 and LEGACY_API_TOKEN is configured. Not a NEXUS assessment.",
+        "deprecated": true,
+        "security": [
+          {
+            "LegacyAPIKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy simulation response"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "404": {
+            "description": "Legacy API disabled"
+          }
+        }
+      }
+    },
+    "/api/audit/logs": {
+      "get": {
+        "summary": "Legacy simulation audit chain",
+        "description": "Disabled unless ENABLE_LEGACY_API=1 and LEGACY_API_TOKEN is configured. Not a NEXUS assessment.",
+        "deprecated": true,
+        "security": [
+          {
+            "LegacyAPIKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy simulation response"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "404": {
+            "description": "Legacy API disabled"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "LegacyAPIKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       }
     }
   }
